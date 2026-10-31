@@ -1,0 +1,19 @@
+{
+    "higheffort": true,
+    "id": "130548881",
+    "name": "zickscapes",
+    "description": "Robot only map inspired by qoUEO and Nullscapes. Includes a 2p dual, has a randomized ending, and is (almost) completely gridlocked. Layout built in 1 week.",
+    "publisher": "1kv",
+    "creators": ["noxvera"],
+    "verifier": "N/A",
+    "videos": [
+        {
+            "name": "showcase",
+            "url": "https://youtu.be/CLQDy5o43ks"
+        }
+    ],
+    "percentToQualify": "7",
+    "song": "861866",
+    "records": [
+    ]
+}
