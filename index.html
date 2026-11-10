@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Pocket Demonlist (TPDL)</title>
+<style>
+:root{--bg:#f4f4f7;--surf:#fff;--surf2:#ececf1;--tx:#1b1b24;--mut:#6b6b7b;--ac:#d6336c;--bd:#dcdce4;--ok:#2b8a3e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13131a;--surf:#1d1d27;--surf2:#272733;--tx:#ececf4;--mut:#9a9aae;--ac:#ff5c95;--bd:#33334a;--ok:#51cf66}}
+:root[data-theme="dark"]{--bg:#13131a;--surf:#1d1d27;--surf2:#272733;--tx:#ececf4;--mut:#9a9aae;--ac:#ff5c95;--bd:#33334a;--ok:#51cf66}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 16px 8px;max-width:1100px;margin:auto}
+h1{margin:0;font-size:24px}h1 span{color:var(--ac)}
+.sub{color:var(--mut);margin:2px 0 0}
+nav{display:flex;gap:6px;max-width:1100px;margin:8px auto 0;padding:0 16px}
+nav button{background:none;border:0;color:var(--mut);font:inherit;font-weight:600;padding:8px 12px;border-bottom:2px solid transparent;cursor:pointer}
+nav button.on{color:var(--tx);border-color:var(--ac)}
+main{max-width:1100px;margin:12px auto;padding:0 16px 40px}
+.grid{display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surf);border:1px solid var(--bd);border-radius:10px}
+.row{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--bd);cursor:pointer}
+.row:last-child{border:0}.row:hover,.row.sel{background:var(--surf2)}
+.rk{font-weight:800;font-size:18px;color:var(--ac);text-align:center}
+.nm{font-weight:700}.cr{color:var(--mut);font-size:13px}
+.pt{font-size:13px;color:var(--mut);white-space:nowrap}
+.det{padding:16px;position:sticky;top:12px}
+.det h2{margin:0 0 2px;font-size:20px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:12px 0}
+dt{color:var(--mut)}dd{margin:0;font-weight:600}
+a.btn,button.b{display:inline-block;background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;text-decoration:none;cursor:pointer}
+button.b.alt{background:var(--surf2);color:var(--tx);border:1px solid var(--bd)}
+button.b.red{background:#c92a2a}
+.empty{padding:28px;text-align:center;color:var(--mut)}
+.mod{padding:14px;margin-bottom:14px;border-color:var(--ac)}
+.mod h3{margin:0 0 8px;font-size:15px}
+.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+input{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font:inherit}
+.msg{margin-top:8px;font-size:13px;color:var(--mut)}.msg.err{color:#e03131}
+.rules{padding:18px 22px}.rules h2{margin-top:0}.rules li{margin:6px 0}
+.tag{display:inline-block;background:var(--surf2);border-radius:99px;padding:1px 9px;font-size:12px;color:var(--mut);margin-left:6px}
+</style>
+</head>
+<body>
+<header><h1>The Pocket <span>Demonlist</span> <small style="color:var(--mut);font-size:14px">TPDL</small></h1>
+<p class="sub">Short, brutal challenges: 20–45 seconds of pure pain.</p></header>
+<nav><button id="t-list" class="on">List</button><button id="t-rules">Rules</button></nav>
+<main><div id="app"></div></main>
+<script id="data" type="application/json">{"levels":[]}</script>
+<script>
+(function(){
+var MAX=50,state={levels:[]},sel=0,tab='list',mod=false,artifact=null,msg='',err=false,app=document.getElementById('app');
+try{state=JSON.parse(document.getElementById('data').textContent)||state}catch(e){}
+function pts(r){return Math.round(300*Math.pow(0.93,r-1)*10)/10}
+function el(t,p,k){var e=document.createElement(t);if(p)for(var a in p){if(a==='text')e.textContent=p[a];else if(a==='on')e.addEventListener('click',p[a]);else e.setAttribute(a,p[a])}(k||[]).forEach(function(c){if(c)e.appendChild(c)});return e}
+function safeUrl(u){return /^https?:\/\//i.test(u)?u:''}
+function save(){
+  if(!artifact)return Promise.resolve();
+  var c=document.documentElement.cloneNode(true);
+  c.querySelector('#app').innerHTML='';
+  c.querySelector('#data').textContent=JSON.stringify(state).replace(/</g,'\\u003c');
+  msg='Saving…';err=false;render();
+  return artifact.publish('<!DOCTYPE html>\n'+c.outerHTML).catch(function(e){
+    msg=(e&&e.code==='not_writer'||e&&e.code==='not_granted')?'Only list moderators can edit.':'Save failed or conflicted. The page will reload to the latest version.';err=true;render();
+  });
+}
+function field(id,ph,type,extra){var i=el('input',{id:id,placeholder:ph,type:type||'text'});if(extra)for(var k in extra)i.setAttribute(k,extra[k]);return i}
+function modPanel(){
+  var n=state.levels.length;
+  var box=el('div',{class:'card mod'},[el('h3',{text:'Moderator panel · '+n+'/'+MAX+' levels'})]);
+  var f=el('div',{class:'f'},[field('f-name','Level name'),field('f-cr','Creator'),field('f-ver','Verifier'),
+    field('f-len','Length (20–45 s)','number',{min:20,max:45}),field('f-vid','Raw footage URL (https://…)'),
+    field('f-pos','Place at top # (blank = bottom)','number',{min:1,max:MAX})]);
+  box.appendChild(f);
+  box.appendChild(el('div',{style:'margin-top:10px'},[el('button',{class:'b',text:'Add level',on:addLevel})]));
+  box.appendChild(el('div',{class:'msg'+(err?' err':''),text:msg}));
+  return box;
+}
+function v(id){return (document.getElementById(id).value||'').trim()}
+function addLevel(){
+  var l={name:v('f-name'),creator:v('f-cr'),verifier:v('f-ver'),length:parseFloat(v('f-len')),video:v('f-vid')};
+  var pos=parseInt(v('f-pos'),10);
+  var e='';
+  if(!l.name||!l.creator||!l.verifier)e='Name, creator and verifier are required.';
+  else if(!(l.length>=20&&l.length<=45))e='Length must be 20–45 seconds.';
+  else if(!safeUrl(l.video))e='Raw footage must be an http(s) link.';
+  else if(state.levels.length>=MAX)e='The list is full ('+MAX+'). Raise MAX to extend it.';
+  if(e){msg=e;err=true;return render()}
+  var i=pos>=1&&pos<=state.levels.length+1?pos-1:state.levels.length;
+  state.levels.splice(i,0,l);sel=i;save();
+}
+function move(i,d){var j=i+d;if(j<0||j>=state.levels.length)return;var t=state.levels[i];state.levels[i]=state.levels[j];state.levels[j]=t;sel=j;save()}
+function del(i){if(!confirm('Remove “'+state.levels[i].name+'” from the list?'))return;state.levels.splice(i,1);sel=Math.max(0,i-1);save()}
+function detail(){
+  var l=state.levels[sel];
+  if(!l)return el('div',{class:'card det empty',text:'Select a level to see details.'});
+  var d=el('div',{class:'card det'},[el('h2',{text:l.name}),el('div',{class:'cr',text:'by '+l.creator}),
+    el('dl',{},[el('dt',{text:'Placement'}),el('dd',{text:'Top '+(sel+1)}),el('dt',{text:'Points'}),el('dd',{text:String(pts(sel+1))}),
+      el('dt',{text:'Length'}),el('dd',{text:l.length+' s'}),el('dt',{text:'Verifier'}),el('dd',{text:l.verifier}),
+    ]),
+    el('a',{class:'btn',href:safeUrl(l.video),target:'_blank',rel:'noopener noreferrer',text:'Watch verification ▶'})]);
+  if(mod)d.appendChild(el('div',{style:'margin-top:14px;display:flex;gap:6px;flex-wrap:wrap'},[
+    el('button',{class:'b alt',text:'↑ Up',on:function(){move(sel,-1)}}),el('button',{class:'b alt',text:'↓ Down',on:function(){move(sel,1)}}),
+    el('button',{class:'b red',text:'Remove',on:function(){del(sel)}})]));
+  return d;
+}
+function rulesView(){
+  var r=el('div',{class:'card rules'},[el('h2',{text:'Rules'})]);
+  var ul=el('ul');
+  ['Levels must be between 20 and 45 seconds long.',
+   'Placement is decided by moderators using both community opinion and raw difficulty.',
+   'Harder levels are worth more points. Rank #1 is worth 300 points and each rank down is worth about 7% less.',
+   'The list holds up to '+MAX+' levels and may be extended later.',
+   'A legitimate completion requires raw footage with audible click sounds.',
+   'Only list moderators can add, move or remove levels.'].forEach(function(t){ul.appendChild(el('li',{text:t}))});
+  r.appendChild(ul);return r;
+}
+function listView(){
+  var L=state.levels;
+  var box=el('div',{class:'card'});
+  if(!L.length)box.appendChild(el('div',{class:'empty',text:'No levels yet. Moderators can add the first one.'}));
+  L.forEach(function(l,i){
+    box.appendChild(el('div',{class:'row'+(i===sel?' sel':''),on:function(){sel=i;render();if(window.innerWidth<=800)document.getElementById('det').scrollIntoView({behavior:'smooth'})}},[
+      el('div',{class:'rk',text:'#'+(i+1)}),
+      el('div',{},[el('div',{class:'nm',text:l.name}),el('div',{class:'cr',text:l.creator+' · '+l.length+' s'})]),
+      el('div',{class:'pt',text:pts(i+1)+' pts'})]));
+  });
+  var side=el('div',{id:'det'},[detail()]);
+  return el('div',{class:'grid'},[box,side]);
+}
+function render(){
+  app.innerHTML='';
+  document.getElementById('t-list').className=tab==='list'?'on':'';
+  document.getElementById('t-rules').className=tab==='rules'?'on':'';
+  if(mod&&tab==='list')app.appendChild(modPanel());
+  app.appendChild(tab==='list'?listView():rulesView());
+}
+document.getElementById('t-list').onclick=function(){tab='list';render()};
+document.getElementById('t-rules').onclick=function(){tab='rules';render()};
+render();
+if(window.claude&&claude.use){
+  Promise.all([claude.use('artifact'),claude.use('user')]).then(function(r){
+    artifact=r[0];var u=r[1];mod=!!(artifact&&u&&u.isOwner());render();
+  }).catch(function(){});
+}
+})();
+</script>
+</body>
+</html>
